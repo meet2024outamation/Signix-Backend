@@ -1,6 +1,0 @@
-@Signix.IAM_HostAddress = http://localhost:5079
-
-GET {{Signix.IAM_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
