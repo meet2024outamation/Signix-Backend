@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36401.2 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Signix.API", "Signix.API\Signix.API.csproj", "{26111A9C-3980-492B-B8A9-FD6B8AC7DD9D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Signix.Entities", "Signix.Entities\Signix.Entities.csproj", "{3D852968-7861-430C-9D5C-7C2294EA7036}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{26111A9C-3980-492B-B8A9-FD6B8AC7DD9D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{26111A9C-3980-492B-B8A9-FD6B8AC7DD9D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{26111A9C-3980-492B-B8A9-FD6B8AC7DD9D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{26111A9C-3980-492B-B8A9-FD6B8AC7DD9D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3D852968-7861-430C-9D5C-7C2294EA7036}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3D852968-7861-430C-9D5C-7C2294EA7036}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3D852968-7861-430C-9D5C-7C2294EA7036}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3D852968-7861-430C-9D5C-7C2294EA7036}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {66A8E0B5-CF4D-43D0-88EC-82EC2199BC8A}
+	EndGlobalSection
+EndGlobal

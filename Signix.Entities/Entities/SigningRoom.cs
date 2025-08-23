@@ -1,0 +1,58 @@
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json;
+
+namespace Signix.Entities.Entities;
+
+[Table("signing_rooms")]
+public class SigningRoom
+{
+    [Key]
+    [Column("id")]
+    public int Id { get; set; }
+
+    [Required]
+    [MaxLength(255)]
+    [Column("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [Column("description")]
+    public string? Description { get; set; }
+
+    [Column("original_path")]
+    public string? OriginalPath { get; set; }
+
+    [Column("signed_path")]
+    public string? SignedPath { get; set; }
+
+    [Column("notary_id")]
+    public int NotaryId { get; set; }
+
+    [Column("created_at")]
+    public DateTime CreatedAt { get; set; }
+
+    [Column("started_at")]
+    public DateTime? StartedAt { get; set; }
+
+    [Column("completed_at")] // Fixed typo: "CommpletedAt" -> "CompletedAt"
+    public DateTime? CompletedAt { get; set; }
+
+    [Column("created_by")]
+    public int CreatedBy { get; set; }
+
+    [Column("modified_by")]
+    public int ModifiedBy { get; set; }
+
+    [Column("status_id")]
+    public int StatusId { get; set; }
+
+    [Column("meta_data", TypeName = "jsonb")]
+    public JsonElement MetaData { get; set; }
+
+    // Navigation properties
+    [ForeignKey("NotaryId")]
+    public virtual User Notary { get; set; } = null!;
+
+    public virtual ICollection<Signer> Signers { get; set; } = new List<Signer>();
+    public virtual ICollection<Document> Documents { get; set; } = new List<Document>();
+}
