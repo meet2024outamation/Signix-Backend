@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace Signix.Entities.Entities
 {
@@ -29,6 +30,11 @@ namespace Signix.Entities.Entities
         [Column("file_type")]
         public string FileType { get; set; } = string.Empty;
 
+        [Required]
+        [MaxLength(500)]
+        [Column("file_path")]
+        public string FilePath { get; set; } = string.Empty;
+
         [Column("doc_tags")]
         public string? DocTags { get; set; }
 
@@ -43,9 +49,11 @@ namespace Signix.Entities.Entities
         public virtual DocumentStatus DocumentStatus { get; set; } = null!;
 
         [ForeignKey("SigningRoomId")]
+        [JsonIgnore]
         public virtual SigningRoom SigningRoom { get; set; } = null!;
 
         [ForeignKey("ClientId")]
+        [JsonIgnore]
         public virtual Client Client { get; set; } = null!;
     }
 }

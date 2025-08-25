@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace Signix.Entities.Entities
 {
@@ -38,6 +39,7 @@ namespace Signix.Entities.Entities
 
         // Navigation properties
         [ForeignKey("SigningRoomId")]
+        [JsonIgnore]
         public virtual SigningRoom SigningRoom { get; set; } = null!;
     }
 }

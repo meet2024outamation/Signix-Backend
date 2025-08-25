@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Signix.Entities.Entities;
 
@@ -53,6 +54,9 @@ public class SigningRoom
     [ForeignKey("NotaryId")]
     public virtual User Notary { get; set; } = null!;
 
+    [JsonIgnore]
     public virtual ICollection<Signer> Signers { get; set; } = new List<Signer>();
+    
+    [JsonIgnore]
     public virtual ICollection<Document> Documents { get; set; } = new List<Document>();
 }
