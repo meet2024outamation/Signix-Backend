@@ -20,4 +20,5 @@ public class Designation
 
     [Column("is_active")]
     public bool IsActive { get; set; } = true;
+    public virtual ICollection<Signer> Signers { get; set; } = new List<Signer>();
 }

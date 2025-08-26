@@ -25,18 +25,17 @@ namespace Signix.Entities.Entities
         [Column("file_size")]
         public long FileSize { get; set; }
 
-        [Required]
         [MaxLength(50)]
         [Column("file_type")]
         public string FileType { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Document tags stored as JSONB for flexible key-value pairs
+        /// Example: {"borr_name": "John Doe", "loan_amount": 50000, "credit_score": 750}
+        /// </summary>
         [Required]
-        [MaxLength(500)]
-        [Column("file_path")]
-        public string FilePath { get; set; } = string.Empty;
-
         [Column("doc_tags")]
-        public string? DocTags { get; set; }
+        public string DocTags { get; set; } = string.Empty;
 
         [Column("signing_room_id")]
         public int SigningRoomId { get; set; }

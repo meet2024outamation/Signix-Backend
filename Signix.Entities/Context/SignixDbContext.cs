@@ -15,6 +15,10 @@ public class SignixDbContext : DbContext
     public DbSet<SigningRoom> SigningRooms { get; set; }
     public DbSet<User> Users { get; set; }
 
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        optionsBuilder.UseSnakeCaseNamingConvention();
+    }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -36,6 +40,8 @@ public class SignixDbContext : DbContext
                   .WithMany(sr => sr.Documents)
                   .HasForeignKey(d => d.SigningRoomId)
                   .OnDelete(DeleteBehavior.Cascade);
+
+            entity.Property(e => e.DocTags).HasColumnType("jsonb");
         });
 
         modelBuilder.Entity<SigningRoom>(entity =>
@@ -62,7 +68,6 @@ public class SignixDbContext : DbContext
         {
             entity.Property(e => e.ClientSecret).HasColumnType("jsonb");
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("NOW()");
-            entity.Property(e => e.ModifiedAt).HasDefaultValueSql("NOW()");
         });
 
         modelBuilder.Entity<User>(entity =>
@@ -82,33 +87,32 @@ public class SignixDbContext : DbContext
         modelBuilder.Entity<Document>().HasIndex(d => d.SigningRoomId);
         modelBuilder.Entity<Document>().HasIndex(d => d.DocumentStatusId);
         modelBuilder.Entity<SigningRoom>().HasIndex(sr => sr.NotaryId);
-        modelBuilder.Entity<SigningRoom>().HasIndex(sr => sr.StatusId);
         modelBuilder.Entity<Signer>().HasIndex(s => s.SigningRoomId);
 
         // Seed initial data
-        SeedInitialData(modelBuilder);
+        //SeedInitialData(modelBuilder);
     }
 
-    private void SeedInitialData(ModelBuilder modelBuilder)
-    {
-        // Seed DocumentStatus
-        modelBuilder.Entity<DocumentStatus>().HasData(
-            new DocumentStatus { Id = 1, Name = "Draft", Description = "Document is in draft state", IsActive = true },
-            new DocumentStatus { Id = 2, Name = "Pending", Description = "Document is pending signature", IsActive = true },
-            new DocumentStatus { Id = 3, Name = "Signed", Description = "Document has been signed", IsActive = true },
-            new DocumentStatus { Id = 4, Name = "Rejected", Description = "Document was rejected", IsActive = true },
-            new DocumentStatus { Id = 5, Name = "Expired", Description = "Document signing has expired", IsActive = true }
-        );
+    //private void SeedInitialData(ModelBuilder modelBuilder)
+    //{
+    //    // Seed DocumentStatus
+    //    modelBuilder.Entity<DocumentStatus>().HasData(
+    //        new DocumentStatus { Id = 1, Name = "Draft", Description = "Document is in draft state", IsActive = true },
+    //        new DocumentStatus { Id = 2, Name = "Pending", Description = "Document is pending signature", IsActive = true },
+    //        new DocumentStatus { Id = 3, Name = "Signed", Description = "Document has been signed", IsActive = true },
+    //        new DocumentStatus { Id = 4, Name = "Rejected", Description = "Document was rejected", IsActive = true },
+    //        new DocumentStatus { Id = 5, Name = "Expired", Description = "Document signing has expired", IsActive = true }
+    //    );
 
-        // Seed Designations
-        modelBuilder.Entity<Designation>().HasData(
-            new Designation { Id = 1, Name = "CEO", Description = "Chief Executive Officer", IsActive = true },
-            new Designation { Id = 2, Name = "CTO", Description = "Chief Technology Officer", IsActive = true },
-            new Designation { Id = 3, Name = "Manager", Description = "Department Manager", IsActive = true },
-            new Designation { Id = 4, Name = "Director", Description = "Company Director", IsActive = true },
-            new Designation { Id = 5, Name = "Employee", Description = "Regular Employee", IsActive = true }
-        );
-    }
+    //    // Seed Designations
+    //    modelBuilder.Entity<Designation>().HasData(
+    //        new Designation { Id = 1, Name = "CEO", Description = "Chief Executive Officer", IsActive = true },
+    //        new Designation { Id = 2, Name = "CTO", Description = "Chief Technology Officer", IsActive = true },
+    //        new Designation { Id = 3, Name = "Manager", Description = "Department Manager", IsActive = true },
+    //        new Designation { Id = 4, Name = "Director", Description = "Company Director", IsActive = true },
+    //        new Designation { Id = 5, Name = "Employee", Description = "Regular Employee", IsActive = true }
+    //    );
+    //}
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

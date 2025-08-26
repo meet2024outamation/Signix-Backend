@@ -8,7 +8,8 @@ public interface ISigningRoomService
 {
     Task<Result<SigningRoom>> GetByIdAsync(int id);
     Task<PagedResult<List<SigningRoom>>> GetAllAsync(SigningRoomQuery query);
-    Task<Result<SigningRoom>> CreateAsync(CreateSigningRoomRequest request);
-    Task<Result<SigningRoom>> UpdateAsync(UpdateSigningRoomRequest request);
+    Task<Result<SigningRoom>> CreateAsync(SigningRoomCreateRequest request);
+    Task<Result<int>> RegisterAsync(RegisterSigningRoomRequest request);
+    Task<Result<SigningRoom>> UpdateAsync(SigningRoomUpdateRequest request);
     Task<Result> DeleteAsync(int id);
 }

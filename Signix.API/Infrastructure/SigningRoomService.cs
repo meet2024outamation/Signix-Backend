@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Signix.API.Models.Requests;
 using Signix.Entities.Context;
 using Signix.Entities.Entities;
+using System.Text.Json;
 
 namespace Signix.API.Infrastructure;
 
@@ -51,9 +52,6 @@ public class SigningRoomService : ISigningRoomService
             if (query.NotaryId.HasValue)
                 queryable = queryable.Where(sr => sr.NotaryId == query.NotaryId.Value);
 
-            if (query.StatusId.HasValue)
-                queryable = queryable.Where(sr => sr.StatusId == query.StatusId.Value);
-
             if (!string.IsNullOrEmpty(query.Name))
                 queryable = queryable.Where(sr => sr.Name.Contains(query.Name));
 
@@ -89,7 +87,61 @@ public class SigningRoomService : ISigningRoomService
         }
     }
 
-    public async Task<Result<SigningRoom>> CreateAsync(CreateSigningRoomRequest request)
+    public async Task<Result<int>> RegisterAsync(RegisterSigningRoomRequest request)
+    {
+        //return Result<int>.Error("Not implemented");
+        try
+        {
+            var notaryId = await _context.Users.Where(u => u.Email == request.NotaryEmail).SingleOrDefaultAsync();
+            if (notaryId != null)
+            {
+                return Result<int>.Error("Notary does not exists");
+            }
+            var pendingStatus = await _context.DocumentStatuses.Where(ds => ds.Name == "Pending").SingleOrDefaultAsync();
+            SigningRoom signingRoom = new SigningRoom
+            {
+                CreatedBy = notaryId.Id,
+                Description = request.Description,
+                MetaData = JsonSerializer.Serialize(request.MetaData),
+                Name = request.Name,
+                NotaryId = notaryId.Id,
+                OriginalPath = request.OriginalPath,
+            };
+            request.Documents.ForEach(doc =>
+            {
+                signingRoom.Documents.Add(new Document
+                {
+                    Name = doc.Name,
+                    DocTags = JsonSerializer.Serialize(doc.DocTags),
+                    FileSize = doc.FileSize,
+                    FileType = doc.FileType,
+                    DocumentStatusId = pendingStatus.Id,
+                    SigningRoomId = signingRoom.Id,
+                    ClientId = 1, // TODO: Replace with actual client ID
+                    Description = doc.Description
+                });
+            });
+            request.Signers.ForEach(signer =>
+            {
+                signingRoom.Signers.Add(new Signer
+                {
+                    Name = signer.Name,
+                    Email = signer.Email,
+                    DesignationId = (int)signer.Designation!,
+                    SigningRoomId = signingRoom.Id,
+                });
+            });
+            await _context.SigningRooms.AddAsync(signingRoom);
+            await _context.SaveChangesAsync();
+            return Result<int>.Created(signingRoom.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error registering signing room");
+            return Result<int>.Error("An error occurred while registering the signing room");
+        }
+    }
+    public async Task<Result<SigningRoom>> CreateAsync(SigningRoomCreateRequest request)
     {
         try
         {
@@ -111,9 +163,8 @@ public class SigningRoomService : ISigningRoomService
                 OriginalPath = request.OriginalPath,
                 NotaryId = request.NotaryId,
                 CreatedBy = request.CreatedBy,
-                ModifiedBy = request.CreatedBy,
-                StatusId = request.StatusId,
-                MetaData = request.MetaData,
+                //StatusId = request.StatusId,
+                MetaData = JsonSerializer.Serialize(request.MetaData),
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -134,7 +185,7 @@ public class SigningRoomService : ISigningRoomService
         }
     }
 
-    public async Task<Result<SigningRoom>> UpdateAsync(UpdateSigningRoomRequest request)
+    public async Task<Result<SigningRoom>> UpdateAsync(SigningRoomUpdateRequest request)
     {
         try
         {
@@ -167,8 +218,7 @@ public class SigningRoomService : ISigningRoomService
             signingRoom.StartedAt = request.StartedAt;
             signingRoom.CompletedAt = request.CompletedAt;
             signingRoom.ModifiedBy = request.ModifiedBy;
-            signingRoom.StatusId = request.StatusId;
-            signingRoom.MetaData = request.MetaData;
+            signingRoom.MetaData = JsonSerializer.Serialize(request.MetaData);
 
             await _context.SaveChangesAsync();
 

@@ -5,11 +5,12 @@ using Signix.API.Extensions;
 using Signix.API.Infrastructure;
 using Signix.API.Models.Requests;
 using Signix.Entities.Entities;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace Signix.API.Endpoints.SigningRooms;
 
 public class Create : EndpointBaseAsync
-    .WithRequest<CreateSigningRoomRequest>
+    .WithRequest<SigningRoomCreateRequest>
     .WithActionResult
 {
     private readonly ISigningRoomService _signingRoomService;
@@ -19,9 +20,15 @@ public class Create : EndpointBaseAsync
         _signingRoomService = signingRoomService;
     }
 
-    [HttpPost("/api/signing-rooms")]
+    [HttpPost("/api/signing-room")]
+    [SwaggerOperation(
+      Summary = "Create Signing Room",
+      Description = "",
+      OperationId = "Create.SigningRoom",
+      Tags = new[] { "Signing Room" }
+      )]
     public override async Task<ActionResult> HandleAsync(
-        CreateSigningRoomRequest request,
+        SigningRoomCreateRequest request,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.Name))

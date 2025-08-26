@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Text.Json;
 
 namespace Signix.Entities.Entities;
 
@@ -23,8 +22,8 @@ public class Client
     [Column("azure_client_id")]
     public string AzureClientId { get; set; } = string.Empty;
 
-    [Column("client_secret", TypeName = "jsonb")]
-    public JsonElement ClientSecret { get; set; }
+    [Column("client_secret")]
+    public string? ClientSecret { get; set; }
 
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

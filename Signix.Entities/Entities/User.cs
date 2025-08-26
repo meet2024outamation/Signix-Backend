@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Signix.Entities.Entities
@@ -27,8 +26,8 @@ namespace Signix.Entities.Entities
         [Column("email")]
         public string Email { get; set; } = string.Empty;
 
-        [Column("meta_data", TypeName = "jsonb")]
-        public JsonElement MetaData { get; set; }
+        [Column("meta_data")]
+        public string? MetaData { get; set; }
 
         // Navigation properties
         [JsonIgnore]
