@@ -1,9 +1,25 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Signix.API.Infrastructure;
 using Signix.Entities.Context;
 using System.Text.Json.Serialization;
+using SharedKernel.AuthorizeHandler;
+using Microsoft.Identity.Web;
+using SharedKernel.Services;
+using SharedKernel.Models;
 
 var builder = WebApplication.CreateBuilder(args);
+
+#region Authorize Configuration
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
+
+builder.ConfigureAuthorization();
+builder.Services.AddScoped<IUser, AuthUser>();
+
+builder.Services.AddTransient<TokenHandler>();
+#endregion
 
 // Add services to the container.
 builder.Services.AddControllers()
