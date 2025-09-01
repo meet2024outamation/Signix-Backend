@@ -10,7 +10,8 @@ public class DocumentSignedMessage
     public string OriginalPath { get; set; } = string.Empty;
     [JsonPropertyName("signedPath")]
     public string SignedPath { get; set; } = string.Empty;
-
+    [JsonPropertyName("signData")]
+    public Dictionary<string, string> SignData { get; set; } = new();
     //[JsonPropertyName("documentIds")]
     //public List<int> DocumentIds { get; set; } = new();
     [JsonPropertyName("signers")]
@@ -60,7 +61,7 @@ public class SignedDocumentInfo
     public long FileSize { get; set; }
 
     [JsonPropertyName("docTags")]
-    public string DocTags { get; set; } = string.Empty;
+    public Dictionary<string, object> DocTags { get; set; } = new();
 
     [JsonPropertyName("clientName")]
     public string? ClientName { get; set; }

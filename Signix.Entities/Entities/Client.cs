@@ -23,7 +23,7 @@ public class Client
     public string AzureClientId { get; set; } = string.Empty;
 
     [Column("client_secret")]
-    public string? ClientSecret { get; set; }
+    public Dictionary<string, object>? ClientSecret { get; set; }
 
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -41,5 +41,5 @@ public class Client
     public bool IsActive { get; set; } = true;
 
     // Navigation properties
-    public virtual ICollection<Document> Documents { get; set; } = new List<Document>();
+    public virtual ICollection<SigningRoom> SigningRooms { get; set; } = new List<SigningRoom>();
 }

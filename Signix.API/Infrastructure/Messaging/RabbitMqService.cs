@@ -1,165 +1,212 @@
-﻿using RabbitMQ.Client;
-using Signix.API.Models.Messages;
+﻿using Microsoft.Extensions.Options;
+using RabbitMQ.Client;
+using RabbitMQ.Client.Events;
+using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
+using static Signix.API.Models.Meta;
 
 namespace Signix.API.Infrastructure.Messaging;
 
-public class RabbitMqService : IRabbitMqService, IDisposable
+public class RabbitMQService : IRabbitMQService, IDisposable
 {
-    private readonly IConnection _connection;
-    private readonly IChannel _channel;
-    private readonly ILogger<RabbitMqService> _logger;
-    private readonly string _exchangeName;
-    private readonly string _documentSignedQueueName;
+    private IConnection? _connection;
+    private IChannel? _channel;
+    private readonly RabbitMQSettings _settings;
+    private readonly ILogger<RabbitMQService> _logger;
+    private readonly ConcurrentDictionary<string, string> _consumers = new();
+    private readonly SemaphoreSlim _initializationSemaphore = new(1, 1);
+    private bool _disposed = false;
+    private bool _initialized = false;
 
-    public RabbitMqService(IConfiguration configuration, ILogger<RabbitMqService> logger)
+    public RabbitMQService(IOptions<RabbitMQSettings> settings, ILogger<RabbitMQService> logger)
     {
+        _settings = settings.Value;
         _logger = logger;
-        var rabbitMqConfig = configuration.GetSection("RabbitMQ");
-        var hostname = rabbitMqConfig["Hostname"] ?? "localhost";
-        var port = rabbitMqConfig.GetValue<int>("Port", 5672);
-        var username = rabbitMqConfig["Username"] ?? "guest";
-        var password = rabbitMqConfig["Password"] ?? "guest";
-        var virtualHost = rabbitMqConfig["VirtualHost"] ?? "/";
+    }
 
-        _exchangeName = rabbitMqConfig["ExchangeName"] ?? "signix.documents.exchange";
-        _documentSignedQueueName = rabbitMqConfig["DocumentSignedQueueName"] ?? "document.signed.queue";
+    private async Task EnsureInitializedAsync()
+    {
+        if (_initialized) return;
 
+        await _initializationSemaphore.WaitAsync();
         try
         {
+            if (_initialized) return;
+
             var factory = new ConnectionFactory
             {
-                HostName = hostname,
-                Port = port,
-                UserName = username,
-                Password = password,
-                VirtualHost = virtualHost,
-                RequestedConnectionTimeout = TimeSpan.FromSeconds(30),
-                RequestedHeartbeat = TimeSpan.FromSeconds(60),
+                HostName = _settings.Host,
+                VirtualHost = _settings.VirtualHost,
+                UserName = _settings.Username,
+                Password = _settings.Password,
                 AutomaticRecoveryEnabled = true,
                 NetworkRecoveryInterval = TimeSpan.FromSeconds(10)
             };
-            _connection = factory.CreateConnectionAsync().GetAwaiter().GetResult();
-            _channel = _connection.CreateChannelAsync().GetAwaiter().GetResult();
-            SetupRabbitMqInfrastructure();
+
+            _connection = await factory.CreateConnectionAsync();
+            _channel = await _connection.CreateChannelAsync();
+            _initialized = true;
+
+            _logger.LogInformation("RabbitMQ connection established to {Host}/{VirtualHost}",
+                _settings.Host, _settings.VirtualHost);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to establish RabbitMQ connection");
+            _logger.LogError(ex, "Failed to establish RabbitMQ connection to {Host}/{VirtualHost}",
+                _settings.Host, _settings.VirtualHost);
+            throw;
+        }
+        finally
+        {
+            _initializationSemaphore.Release();
+        }
+    }
+
+    public async Task PublishAsync<T>(string queueName, T message)
+    {
+        await EnsureInitializedAsync();
+
+        try
+        {
+            await DeclareQueueAsync(queueName);
+
+            var json = JsonSerializer.Serialize(message);
+            var body = Encoding.UTF8.GetBytes(json);
+
+            await _channel!.BasicPublishAsync(exchange: "", routingKey: queueName, body: body);
+
+            _logger.LogInformation("Message published to queue {QueueName}: {MessageType}",
+                queueName, typeof(T).Name);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to publish message to queue {QueueName}: {MessageType}",
+                queueName, typeof(T).Name);
             throw;
         }
     }
 
-    private void SetupRabbitMqInfrastructure()
+    public void StartConsuming<T>(string queueName, Func<T, Task> onMessage)
     {
+        // We need to ensure initialization synchronously for this method
+        EnsureInitializedAsync().GetAwaiter().GetResult();
+
         try
         {
-            // Declare exchange
-            _channel.ExchangeDeclareAsync(
-                exchange: _exchangeName,
-                type: ExchangeType.Topic,
-                durable: true,
-                autoDelete: false).GetAwaiter().GetResult();
+            //if (_consumers.ContainsKey(queueName))
+            //{
+            //    _logger.LogWarning("Consumer for queue {QueueName} is already running", queueName);
+            //    return;
+            //}
 
-            // Declare queue for document signed events
-            _channel.QueueDeclareAsync(
-                queue: _documentSignedQueueName,
-                durable: true,
-                exclusive: false,
-                autoDelete: false).GetAwaiter().GetResult();
+            DeclareQueueAsync(queueName).GetAwaiter().GetResult();
 
-            // Bind queue to exchange
-            _channel.QueueBindAsync(
-                queue: _documentSignedQueueName,
-                exchange: _exchangeName,
-                routingKey: "document.signed").GetAwaiter().GetResult();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to setup RabbitMQ infrastructure");
-            throw;
-        }
-    }
-
-    public async Task PublishDocumentSignedMessageAsync(DocumentSignedMessage message)
-    {
-        try
-        {
-            await PublishMessageAsync(message, _documentSignedQueueName, "document.signed");
-            _logger.LogInformation("Document signed message published successfully. CorrelationId: {CorrelationId}, SigningRoomId: {SigningRoomId}, DocumentCount: {DocumentCount}",
-                message.CorrelationId, message.SigningRoomId, message.SignedDocuments.Count);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to publish document signed message. SigningRoomId: {SigningRoomId}", message.SigningRoomId);
-            throw;
-        }
-    }
-
-    public async Task PublishMessageAsync<T>(T message, string queueName, string routingKey = "") where T : class
-    {
-        try
-        {
-            if (_channel == null || _channel.IsClosed)
+            var consumer = new AsyncEventingBasicConsumer(_channel!);
+            consumer.ReceivedAsync += async (model, ea) =>
             {
-                _logger.LogError("RabbitMQ channel is closed. Cannot publish message.");
-                throw new InvalidOperationException("RabbitMQ channel is not available");
-            }
-
-            var jsonMessage = JsonSerializer.Serialize(message, new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                WriteIndented = false
-            });
-
-            var body = Encoding.UTF8.GetBytes(jsonMessage);
-            var properties = new BasicProperties
-            {
-                Persistent = true,
-                ContentType = "application/json",
-                ContentEncoding = "UTF-8",
-                MessageId = Guid.NewGuid().ToString(),
-                Timestamp = new AmqpTimestamp(DateTimeOffset.UtcNow.ToUnixTimeSeconds()),
-                Headers = new Dictionary<string, object>
+                try
                 {
-                    ["MessageType"] = typeof(T).Name,
-                    ["Source"] = "Signix.API",
-                    ["Version"] = "1.0"
+                    var body = ea.Body.ToArray();
+                    var json = Encoding.UTF8.GetString(body);
+                    var deserializedMessage = JsonSerializer.Deserialize<T>(json);
+
+                    if (deserializedMessage != null)
+                    {
+                        await onMessage(deserializedMessage);
+                        await _channel!.BasicAckAsync(ea.DeliveryTag, false);
+
+                        _logger.LogDebug("Message processed from queue {QueueName}: {MessageType}",
+                            queueName, typeof(T).Name);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error processing message from queue {QueueName}: {MessageType}",
+                        queueName, typeof(T).Name);
+
+                    // Reject message and don't requeue on processing errors
+                    await _channel!.BasicNackAsync(ea.DeliveryTag, false, false);
                 }
             };
 
-            // Publish message
-            await _channel.BasicPublishAsync(
-                exchange: _exchangeName,
-                routingKey: routingKey,
-                mandatory: false,
-                basicProperties: properties,
-                body: body);
+            var consumerTag = _channel!.BasicConsumeAsync(queue: queueName, autoAck: false, consumer: consumer).GetAwaiter().GetResult();
+            _consumers.TryAdd(queueName, consumerTag);
 
-            _logger.LogDebug("Message published to queue: {QueueName}, RoutingKey: {RoutingKey}, MessageType: {MessageType}",
-                queueName, routingKey, typeof(T).Name);
+            _logger.LogInformation("Started consuming from queue {QueueName} with consumer tag {ConsumerTag}",
+                queueName, consumerTag);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to publish message to queue: {QueueName}", queueName);
+            _logger.LogError(ex, "Failed to start consuming from queue {QueueName}", queueName);
+            throw;
+        }
+    }
+
+    public void StopConsuming(string queueName)
+    {
+        try
+        {
+            if (_consumers.TryRemove(queueName, out var consumerTag))
+            {
+                _channel?.BasicCancelAsync(consumerTag).GetAwaiter().GetResult();
+                _logger.LogInformation("Stopped consuming from queue {QueueName}", queueName);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to stop consuming from queue {QueueName}", queueName);
+        }
+    }
+
+    public void DeclareQueue(string queueName, bool durable = true, bool exclusive = false, bool autoDelete = false)
+    {
+        DeclareQueueAsync(queueName, durable, exclusive, autoDelete).GetAwaiter().GetResult();
+    }
+
+    private async Task DeclareQueueAsync(string queueName, bool durable = true, bool exclusive = false, bool autoDelete = false)
+    {
+        await EnsureInitializedAsync();
+
+        if (_channel == null)
+        {
+            throw new InvalidOperationException("RabbitMQ channel is not initialized.");
+        }
+        try
+        {
+            await _channel!.QueueDeclareAsync(queue: queueName, durable: durable, exclusive: exclusive, autoDelete: autoDelete);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to declare queue {QueueName}", queueName);
             throw;
         }
     }
 
     public void Dispose()
     {
-        try
+        if (!_disposed)
         {
-            _channel?.CloseAsync().GetAwaiter().GetResult();
-            _connection?.CloseAsync().GetAwaiter().GetResult();
-            _channel?.Dispose();
-            _connection?.Dispose();
-            _logger.LogInformation("RabbitMQ connection disposed");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error disposing RabbitMQ connection");
+            try
+            {
+                // Stop all consumers
+                foreach (var queueName in _consumers.Keys.ToList())
+                {
+                    StopConsuming(queueName);
+                }
+
+                _channel?.Dispose();
+                _connection?.Dispose();
+                _initializationSemaphore?.Dispose();
+
+                _logger.LogInformation("RabbitMQ connection disposed");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error disposing RabbitMQ connection");
+            }
+
+            _disposed = true;
         }
     }
 }

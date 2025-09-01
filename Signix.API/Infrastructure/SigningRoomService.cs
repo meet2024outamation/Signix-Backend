@@ -1,9 +1,9 @@
 using Ardalis.Result;
 using Microsoft.EntityFrameworkCore;
+using Signix.API.Models;
 using Signix.API.Models.Requests;
 using Signix.Entities.Context;
 using Signix.Entities.Entities;
-using System.Text.Json;
 
 namespace Signix.API.Infrastructure;
 
@@ -93,44 +93,56 @@ public class SigningRoomService : ISigningRoomService
         try
         {
             var notaryId = await _context.Users.Where(u => u.Email == request.NotaryEmail).SingleOrDefaultAsync();
-            if (notaryId != null)
+            if (notaryId == null)
             {
                 return Result<int>.Error("Notary does not exists");
             }
-            var pendingStatus = await _context.DocumentStatuses.Where(ds => ds.Name == "Pending").SingleOrDefaultAsync();
+            var client = await _context.Clients.Where(c => c.Name.ToLower() == request.Client.ToLower()).SingleOrDefaultAsync();
+            if (client == null)
+            {
+                return Result<int>.Error("Client does not exists");
+            }
+            var pendingStatus = await _context.DocumentStatuses.Where(ds => ds.Name == Meta.DocumentStatus.Pending).SingleOrDefaultAsync();
             SigningRoom signingRoom = new SigningRoom
             {
                 CreatedBy = notaryId.Id,
                 Description = request.Description,
-                MetaData = JsonSerializer.Serialize(request.MetaData),
+                MetaData = request.MetaData,
+                SignTags = request.SignTags,
                 Name = request.Name,
                 NotaryId = notaryId.Id,
                 OriginalPath = request.OriginalPath,
+                ClientId = client.Id,
             };
             request.Documents.ForEach(doc =>
             {
                 signingRoom.Documents.Add(new Document
                 {
                     Name = doc.Name,
-                    DocTags = JsonSerializer.Serialize(doc.DocTags),
+                    DocTags = doc.DocTags,
                     FileSize = doc.FileSize,
                     FileType = doc.FileType,
                     DocumentStatusId = pendingStatus.Id,
                     SigningRoomId = signingRoom.Id,
-                    ClientId = 1, // TODO: Replace with actual client ID
+                    //ClientId = 1, // TODO: Replace with actual client ID
                     Description = doc.Description
                 });
             });
-            request.Signers.ForEach(signer =>
+            foreach (var signer in request.Signers)
             {
+                var designation = await _context.Designations
+                    .Where(d => d.Name.ToLower() == signer.Designation.ToLower() && d.IsActive)
+                    .FirstOrDefaultAsync();
+
                 signingRoom.Signers.Add(new Signer
                 {
                     Name = signer.Name,
                     Email = signer.Email,
-                    DesignationId = (int)signer.Designation!,
+                    DesignationId = designation.Id,
                     SigningRoomId = signingRoom.Id,
                 });
-            });
+            }
+
             await _context.SigningRooms.AddAsync(signingRoom);
             await _context.SaveChangesAsync();
             return Result<int>.Created(signingRoom.Id);
@@ -163,8 +175,8 @@ public class SigningRoomService : ISigningRoomService
                 OriginalPath = request.OriginalPath,
                 NotaryId = request.NotaryId,
                 CreatedBy = request.CreatedBy,
-                //StatusId = request.StatusId,
-                MetaData = JsonSerializer.Serialize(request.MetaData),
+                SignTags = request.SignTags,
+                MetaData = request.MetaData,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -218,7 +230,8 @@ public class SigningRoomService : ISigningRoomService
             signingRoom.StartedAt = request.StartedAt;
             signingRoom.CompletedAt = request.CompletedAt;
             signingRoom.ModifiedBy = request.ModifiedBy;
-            signingRoom.MetaData = JsonSerializer.Serialize(request.MetaData);
+            signingRoom.MetaData = request.MetaData;
+            signingRoom.SignTags = request.SignTags;
 
             await _context.SaveChangesAsync();
 

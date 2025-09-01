@@ -24,8 +24,8 @@ public class Create : EndpointBaseAsync
     [SwaggerOperation(
       Summary = "Create Signing Room",
       Description = "",
-      OperationId = "Create.SigningRoom",
-      Tags = new[] { "Signing Room" }
+      //OperationId = "Create.SigningRoom",
+      Tags = ["Signing Room"]
       )]
     public override async Task<ActionResult> HandleAsync(
         SigningRoomCreateRequest request,

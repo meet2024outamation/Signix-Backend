@@ -22,8 +22,8 @@ public class List : EndpointBaseAsync
     [SwaggerOperation(
       Summary = "List Signing Room",
       Description = "",
-      OperationId = "List.SigningRoom",
-      Tags = new[] { "Signing Room" }
+      //OperationId = "List.SigningRoom",
+      Tags = ["Signing Room"]
      )]
     public override async Task<ActionResult> HandleAsync(
         [FromQuery] SigningRoomQuery request,

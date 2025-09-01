@@ -36,18 +36,18 @@ public class SignerService : ISignerService
 
             try
             {
-                Convert.FromBase64String(request.Base64Signature);
+                Convert.FromBase64String(request.Body.Base64Signature);
             }
             catch (FormatException)
             {
                 return Result<Signer>.Invalid(new ValidationError
                 {
-                    Identifier = nameof(request.Base64Signature),
+                    Identifier = nameof(request.Body.Base64Signature),
                     ErrorMessage = "Invalid base64 format"
                 });
             }
 
-            signer.SignatureData = request.Base64Signature;
+            signer.SignatureData = request.Body.Base64Signature;
             signer.SignedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
 

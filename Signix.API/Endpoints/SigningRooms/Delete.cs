@@ -21,8 +21,8 @@ public class Delete : EndpointBaseAsync
     [SwaggerOperation(
       Summary = "Delete Signing Room",
       Description = "",
-      OperationId = "Delete.SigningRoom",
-      Tags = new[] { "Signing Room" }
+      //OperationId = "Delete.SigningRoom",
+      Tags = ["Signing Room"]
       )]
     public override async Task<ActionResult> HandleAsync(
         [FromRoute] int id,

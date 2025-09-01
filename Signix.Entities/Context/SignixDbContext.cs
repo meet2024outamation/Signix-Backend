@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Signix.Entities.Entities;
+using System.Text.Json;
 
 namespace Signix.Entities.Context;
 
@@ -26,10 +27,10 @@ public class SignixDbContext : DbContext
         // Configure relationships
         modelBuilder.Entity<Document>(entity =>
         {
-            entity.HasOne(d => d.Client)
-                  .WithMany(c => c.Documents)
-                  .HasForeignKey(d => d.ClientId)
-                  .OnDelete(DeleteBehavior.Restrict);
+            //entity.HasOne(d => d.Client)
+            //.WithMany(c => c.Documents)
+            //.HasForeignKey(d => d.ClientId)
+            //.OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(d => d.DocumentStatus)
                   .WithMany(ds => ds.Documents)
@@ -41,7 +42,9 @@ public class SignixDbContext : DbContext
                   .HasForeignKey(d => d.SigningRoomId)
                   .OnDelete(DeleteBehavior.Cascade);
 
-            entity.Property(e => e.DocTags).HasColumnType("jsonb");
+            entity.Property(e => e.DocTags).HasColumnType("jsonb").HasConversion(v => JsonSerializer.Serialize(v, new JsonSerializerOptions { }),
+                                  v => JsonSerializer.Deserialize<Dictionary<string, object>>(v, new JsonSerializerOptions { })!
+                                );
         });
 
         modelBuilder.Entity<SigningRoom>(entity =>
@@ -50,6 +53,11 @@ public class SignixDbContext : DbContext
                   .WithMany(u => u.SigningRooms)
                   .HasForeignKey(sr => sr.NotaryId)
                   .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(d => d.Client)
+                .WithMany(c => c.SigningRooms)
+                .HasForeignKey(d => d.ClientId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Signer>(entity =>
@@ -66,24 +74,33 @@ public class SignixDbContext : DbContext
         // ✅ PostgreSQL-specific config
         modelBuilder.Entity<Client>(entity =>
         {
-            entity.Property(e => e.ClientSecret).HasColumnType("jsonb");
+            entity.Property(e => e.ClientSecret).HasColumnType("jsonb").HasConversion(v => JsonSerializer.Serialize(v, new JsonSerializerOptions { }),
+                                  v => JsonSerializer.Deserialize<Dictionary<string, object>>(v, new JsonSerializerOptions { })!
+                                );
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("NOW()");
         });
 
         modelBuilder.Entity<User>(entity =>
         {
-            entity.Property(e => e.MetaData).HasColumnType("jsonb");
+            entity.Property(e => e.MetaData).HasColumnType("jsonb").HasConversion(v => JsonSerializer.Serialize(v, new JsonSerializerOptions { }),
+                                  v => JsonSerializer.Deserialize<Dictionary<string, object>>(v, new JsonSerializerOptions { })!
+                                );
             entity.HasIndex(u => u.Email).IsUnique();
         });
 
         modelBuilder.Entity<SigningRoom>(entity =>
         {
-            entity.Property(e => e.MetaData).HasColumnType("jsonb");
+            entity.Property(e => e.MetaData).HasColumnType("jsonb").HasConversion(v => JsonSerializer.Serialize(v, new JsonSerializerOptions { }),
+                                  v => JsonSerializer.Deserialize<Dictionary<string, object>>(v, new JsonSerializerOptions { })!
+                                );
+            entity.Property(e => e.SignTags).HasColumnType("jsonb").HasConversion(v => JsonSerializer.Serialize(v, new JsonSerializerOptions { }),
+                                  v => JsonSerializer.Deserialize<Dictionary<string, object>>(v, new JsonSerializerOptions { })!
+                                );
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("NOW()");
         });
 
         // Add performance indexes
-        modelBuilder.Entity<Document>().HasIndex(d => d.ClientId);
+        modelBuilder.Entity<SigningRoom>().HasIndex(d => d.ClientId);
         modelBuilder.Entity<Document>().HasIndex(d => d.SigningRoomId);
         modelBuilder.Entity<Document>().HasIndex(d => d.DocumentStatusId);
         modelBuilder.Entity<SigningRoom>().HasIndex(sr => sr.NotaryId);

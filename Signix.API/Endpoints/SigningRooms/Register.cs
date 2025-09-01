@@ -16,12 +16,12 @@ namespace Signix.API.Endpoints.SigningRooms
             _signingRoomService = signingRoomService;
         }
 
-        [HttpPost("/api/signing-room")]
+        [HttpPost("/api/register-signing-room")]
         [SwaggerOperation(
-          Summary = "Create Signing Room",
+          Summary = "Register Signing Room",
           Description = "",
-          OperationId = "Create.SigningRoom",
-          Tags = new[] { "Signing Room" }
+          //OperationId = "Register.SigningRoom",
+          Tags = ["Signing Room"]
           )]
         public override async Task<ActionResult> HandleAsync(
             RegisterSigningRoomRequest request,

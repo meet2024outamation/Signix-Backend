@@ -1,6 +1,7 @@
 ﻿using Ardalis.Result;
 using Microsoft.EntityFrameworkCore;
 using Signix.API.Infrastructure.Messaging;
+using Signix.API.Models;
 using Signix.API.Models.Messages;
 using Signix.API.Models.Requests;
 using Signix.Entities.Context;
@@ -12,11 +13,12 @@ public class DocumentService : IDocumentService
 {
     private readonly SignixDbContext _context;
     private readonly ILogger<DocumentService> _logger;
-    private readonly IRabbitMqService _rabbitMqService;
+    private readonly IRabbitMQService _rabbitMqService;
+
     public DocumentService(
         SignixDbContext context,
         ILogger<DocumentService> logger,
-        IRabbitMqService rabbitMqService)
+        IRabbitMQService rabbitMqService)
     {
         _context = context;
         _logger = logger;
@@ -29,16 +31,12 @@ public class DocumentService : IDocumentService
         {
             var queryable = _context.Documents
                 .Include(d => d.DocumentStatus)
-                .Include(d => d.Client)
                 .Include(d => d.SigningRoom)
                 .AsQueryable();
 
             // Apply filters
             if (query.SigningRoomId.HasValue)
                 queryable = queryable.Where(d => d.SigningRoomId == query.SigningRoomId.Value);
-
-            if (query.ClientId.HasValue)
-                queryable = queryable.Where(d => d.ClientId == query.ClientId.Value);
 
             if (query.DocumentStatusId.HasValue)
                 queryable = queryable.Where(d => d.DocumentStatusId == query.DocumentStatusId.Value);
@@ -70,7 +68,8 @@ public class DocumentService : IDocumentService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving documents");
-            return (PagedResult<List<Document>>)PagedResult<List<Document>>.Error("An error occurred while retrieving documents");
+            var errorResult = Result<List<Document>>.Error("An error occurred while retrieving documents");
+            return new PagedResult<List<Document>>(new PagedInfo(1, 10, 0, 0), errorResult);
         }
     }
 
@@ -85,8 +84,7 @@ public class DocumentService : IDocumentService
             var signingRoom = await _context.SigningRooms
                 .Include(sr => sr.Documents)
                     .ThenInclude(d => d.DocumentStatus)
-                .Include(sr => sr.Documents)
-                    .ThenInclude(d => d.Client)
+                .Include(sr => sr.Client)
                 .Include(sr => sr.Signers)
                     .ThenInclude(s => s.Designation)
                 .FirstOrDefaultAsync(sr => sr.Id == request.SignningRoomId);
@@ -95,6 +93,11 @@ public class DocumentService : IDocumentService
             {
                 _logger.LogWarning("Signing room not found. SigningRoomId: {SigningRoomId}", request.SignningRoomId);
                 return Result<int>.NotFound("No signing room found to sign.");
+            }
+            if (signingRoom.CompletedAt != null)
+            {
+                _logger.LogWarning("Signing room already completed. SigningRoomId: {SigningRoomId}", request.SignningRoomId);
+                return Result<int>.Conflict("Signing room already completed.");
             }
 
             var documents = signingRoom.Documents
@@ -107,6 +110,14 @@ public class DocumentService : IDocumentService
                 return Result<int>.NotFound("No documents found to sign.");
             }
 
+            // Extract sign data from SignTags and signers
+            var signTags = signingRoom.SignTags ?? new Dictionary<string, object>();
+            Dictionary<string, string> signData = new Dictionary<string, string>();
+            foreach (var item in signTags)
+            {
+                var signer = signingRoom.Signers.FirstOrDefault(s => s.Name == item.Value.ToString());
+                signData.Add(item.Key, signer?.SignatureData ?? string.Empty);
+            }
             var documentInfoList = documents.Select(doc => new SignedDocumentInfo
             {
                 Id = doc.Id,
@@ -115,7 +126,7 @@ public class DocumentService : IDocumentService
                 FileType = doc.FileType,
                 FileSize = doc.FileSize,
                 DocTags = doc.DocTags,
-                ClientName = doc.Client?.Name,
+                ClientName = signingRoom.Client?.Name,
                 DocumentStatus = doc.DocumentStatus?.Name
             }).ToList();
 
@@ -132,6 +143,7 @@ public class DocumentService : IDocumentService
             {
                 SigningRoomId = request.SignningRoomId,
                 SignedDocuments = documentInfoList,
+                SignData = signData,
                 Signers = signersInfoList,
                 SignedPath = signingRoom.SignedPath,
                 OriginalPath = signingRoom.OriginalPath,
@@ -141,24 +153,27 @@ public class DocumentService : IDocumentService
             };
 
             signingRoom.StartedAt = DateTime.UtcNow;
-            // Publish to RabbitMQ
+            _context.SigningRooms.Update(signingRoom);
+            await _context.SaveChangesAsync();
+
+            // Publish to RabbitMQ - but don't update document status yet
             try
             {
-                await _rabbitMqService.PublishDocumentSignedMessageAsync(rabbitMqMessage);
+                await _rabbitMqService.PublishAsync(Meta.RabbitMQ.QueueName, rabbitMqMessage);
                 _logger.LogInformation("Published document signed message to RabbitMQ. CorrelationId: {CorrelationId}",
                     rabbitMqMessage.CorrelationId);
-                var signedStatusId = await _context.DocumentStatuses
-                .Where(ds => ds.Name == "Signed")
-                .Select(ds => ds.Id)
-                .FirstOrDefaultAsync();
+                //var signedStatusId = await _context.DocumentStatuses
+                //.Where(ds => ds.Name == Meta.DocumentStatus.Signed)
+                //.Select(ds => ds.Id)
+                //.FirstOrDefaultAsync();
 
-                foreach (var doc in documents)
-                {
-                    doc.DocumentStatusId = signedStatusId;
-                }
+                //foreach (var doc in documents)
+                //{
+                //    doc.DocumentStatusId = signedStatusId;
+                //}
 
-                _context.SigningRooms.Update(signingRoom);
-                await _context.SaveChangesAsync();
+                //_context.SigningRooms.Update(signingRoom);
+                //await _context.SaveChangesAsync();
             }
             catch (Exception rabbitEx)
             {

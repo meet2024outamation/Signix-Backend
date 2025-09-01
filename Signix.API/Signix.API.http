@@ -1,6 +1,111 @@
-@Signix.API_HostAddress = http://localhost:5293
+@baseUrl = http://localhost:5293
+@contentType = application/json
 
-GET {{Signix.API_HostAddress}}/weatherforecast/
-Accept: application/json
+#########################################################################################
+# SIGNING ROOMS API
+#########################################################################################
+
+### 2. Get All Signing Rooms (with pagination and filters)
+GET {{baseUrl}}/api/signing-rooms
+Accept: {{contentType}}
+
+### 3. Get All Signing Rooms with Query Parameters
+GET {{baseUrl}}/api/signing-rooms?page=1&pageSize=10&notaryId=1&name=Contract
+Accept: {{contentType}}
+
+### 4. Get Signing Room by ID
+GET {{baseUrl}}/api/signing-rooms/4
+Accept: {{contentType}}
+
+### 6. Register Signing Room (Complete with Documents and Signers)
+POST {{baseUrl}}/api/register-signing-room
+Content-Type: {{contentType}}
+
+{
+  "client": "OMods",
+  "name": "Loan Agreement Signing",
+  "description": "Complete loan documentation signing session",
+  "originalPath": "/TagedPdf/",
+  "notaryEmail": "john.doe@notary.com",
+  "signTags": {
+        "[[[Borr_sign]]]":"John Doe"
+      },
+  "documents": [
+    {
+      "name": "WI State.pdf",
+      "description": "WI State",
+      "docTags": {
+            "[[[Borr1_134811]]]": "John Doe",
+            "[[[Lender_134811]]]": "test lender"
+      },
+      "fileType": "application/pdf",
+      "fileSize": 219810
+    },
+    {
+      "name": "WV State.pdf",
+      "description": "WV State",
+       "docTags": {
+        "[[[Borr1_135049]]]": "John Doe",
+        "[[[Borr2_135049]]]": "Smith",
+        "[[[Lender_135049]]]": "test lender"
+      },
+      "fileType": "application/pdf",
+      "fileSize": 219810
+    }
+  ],
+  "signers": [
+    {
+      "name": "John Doe",
+      "email": "john.doe@email.com",
+      "designation": "Notary"
+    },
+    {
+      "name": "Jane Smith",
+      "email": "jane.smith@financial.com",
+      "designation": "Lender"
+    },
+    {
+      "name": "Robert Wilson",
+      "email": "robert.wilson@notary.com",
+      "designation": "Mers"
+    }
+  ],
+  "metaData": {"loan_type":"personal","branch":"downtown"}
+}
+
+#########################################################################################
+# SIGNERS API
+#########################################################################################
+
+### 13. Update Signer Signature (Base64)
+PUT {{baseUrl}}/api/signers/7/signature
+Content-Type: {{contentType}}
+
+{
+  "base64Signature": "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"
+}
 
 ###
+PUT {{baseUrl}}/api/signers/8/signature
+Content-Type: {{contentType}}
+
+{
+  "base64Signature": "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"
+}
+
+###
+PUT {{baseUrl}}/api/signers/9/signature
+Content-Type: {{contentType}}
+
+{
+  "base64Signature": "iVBORw0KGgoAAAANSUhEUgAAAJQAAACUCAMAAABC4vDmAAAApVBMVEX///8AAACJiYn19fn7+/3y8vf4+Pvp6fLt7fSBgriMjb7h4e2nqMy2t9Tc3OqcncaQkb/BwtvHyN67vNfS0uRqbK3MzeGtrs98fbWhosl5erXW1+dmZ6tra2twcHCWl8JfYKdQUqBKTJ9YWqabm5thYWELCwt7e3tRUVFxcq9AQpoeIY89PpoxM5QAAIQVGY+mpqY4ODcpKSm3t7fi4uMaGhpEREQ49Ev5AAAHr0lEQVR4nO1b63qbOBCl4SIQdwwIAw7YOE5IN63b7u77P9pKAmzAJJJtlM0PztdiRBRLSHM5M6NI0oIFCxYsWLBgwZeCbn7KMAB5DmdXLTQ8ywiFTofChqGZaFxdY9cmHTl73wGI8MXievnCUuknWIuckCQp0CcfDmJ3zYysu03ETYjAamZjWsyemaGe7qEsbEIYMWw+TeZKxUav4arv9rsfat6KbOizuub9eXgiVwp2psBiGZ9a77eM97rNgBB2d6xXD91BMxUynQZRtyVqoXzc0xusJHDf63c/7JN0OwzlA0MbYMdC5kOgJifZRYxR4NANCRQp/2yXo497gnrQVOA7/WZABLq7lf1xT3toMNhG7WbEXncnM7ZDgWDQ9gMhEyJITyPFjIWSR67OAtP97od5FoyUwUTQatgWJ+fotDwWazeioWUNmC7pZuSd33BYuuSMVkYcbzFPXw1Zbm+0khlDAu+A0ZlDm6Xf2kj3kLDAQS/bm/HeTHQ1Bn5RE2c5g9alagZTvf2hX0S8gc/18Fpn57EDBmMwC917r9/9qBpfjNgOQ8sHTYELlTWSFHC8tj8Ip1SBTApSLXdYppzAy/otS9xCyTtydRIG3aRdk37AwCKD9yAjHFtOdWZHTKUGBsHl+ZUbYWGjrCdcsdvAIHTGnGOFrwfRcoPPMHt9omw0nnmVTfe9C0quyQbnRpQ9XUDEqGm+IUTYsWvh/WKzx871Al9WCRKTBypsyMsdUY8SWJmURa4o1pmn3BuQnCVPL7KUUxBvAHjl/mo5Ou+VsRUjTBSg4vepJyIvB9tIoI0CScIfIcWt47O3sBRinNphDDnlFwyXzB+st57iCcy9rgpZy/n3oTYlFZZIZ4aG98DFTsO8Irm0dWBFAirVE7Z5Ms0E2/yUKPieNjGeJ8I66eRFQUJVOuWUczWI/mrl3BcRfmbEg6JWVisudgCsyFNbBs/M890CEBPC374tqHh+w8sRnntrBjwBFkoJJHlVdFLhM+M2xU8aUWqDQ1tE5ke37V4kVTDkQ7PLrqbl0NBeFxMrBD1SpqQfKlLoRmeqGVA5hyKrCw3U+oMx/MgLejJN81L2JxT3zPQ9TXLW+Xo4YRjylbfuhv+OhAQp9MdrWAPR9aoWcErOAarXE2pfKdJaWHqzj/KSIsQQrqbWQ69FJsh6UMemUw7qNRiJWdyY/sCVxPlhAoAKWGAjGI8SljZEZFy9P7j52qybF1sCySaOvXMUmnGSdtXZ7nlik/H11WlPV1iG6lYXUiGmvIXule23r5K6L1I+US01DM6WSN3KkvPWCLdWCcxmOFvrRGWNtx6rJYV8E/lAk/xuWi5eSGio9B3MV3EChaqeVptVbyDZWiPqgLRd64fADv9/0126nEhcvtxK+toe/5ji/86PdqoIB+Zx1HhgbScsaQeHGeni+zBhIlMjXnTlPmLEjMwjLk9xkahqhzsiT7k3tIYWLQX9bB/SXNrOikj2Z+W4gjzxeiQWahkPomN1R+TN/NmqZIR5lJvTXQOon0aYE3400h8fgsF2rmkH2KZ7wrxdLAxXk8SE6eEFG4eB2Z+U+kb2Td21wlPjz7whnb4pKbkIi6Be+F6t1LK+kLnUTIY/m1b8XafBKgawqTsWgGQ1fmLWp5oMgV7RYkKrDMo2oRtIYCv9EvOMsC6/1C8GhbSiplq3bRbUs13QHmjRyMZxVEiuhlpecnFM8Kyz8QERDbucJrgLofo62G8RB++iie/c6f2iRhrSUzclDVnUUpaGxv6K3AwvpkJOgCUmOQ2VGYBssP+DmEqlHqfGNZ5A+jqo0QS/xe5DS0+bmpsxIoyKHtbyLgQI5OMnd8OeoELaTpP002FIvJRrvEaJU5LGJSEIZ6/KauUEGQixsQawtYgkTYDXCNkavonLy96r2U9NTuYLXGwAsqJtECYQkVokqCV9OxFHrefmCKCe8hCVec72mpismJ6G3ZuWm+VUbFfMXRRCU9FaRtxGe2pFrrAShkVCzEYwWW9X2FX4K1FNmZiEqH7LkQoya1B9EKzIxsy5ltUUjzW35NrkgQI2+9bnPvmTT8Xga2qJSvIjULET9dnMBD2bsjBaSbe0lMgpWA5xsWY+nzhJ+G06U52Y6ZRH2dOZM0BTeqNu6Y5hS6AYPJREnfnIqzLFGFtGie0lLCZ+fIFg5hRQPOH2QEeujB1ffsCdOZKZOjhWnywSn/WRvZmt1MThVnStxze59pgfSnnxKLy6qOnObBDki5VSq6vr0XMTPHmszHJ59Wszzw5ei4vti64fYXaGINUDxybn11scc/7ziUMyVd2wEyISU9XZbYXVLREl48T8TbC71Ves/BZOu7rIQcwBlDqqrJvoxpQzFJMUzqABDQPdxj4cYeUYWb+ZDwk8XXo7BP6lx82wRRwCvBOawPPKNyMTWLi6GehTyrPXQfmCu6d8Th37OoRfcKEkTfgfPS9YsGDBggULFixYsOBz8fAFIX37gvjSkzr0Hx4mOn4myKQOx2+bDW090uvmuP/1L707PPwvE6Qrdfz953G/2e83f78c90/HP48v++Pm+Px8fN4//7p/jKffm3++HX79ezgcnp9f8JW8PPnA/14eNpvnx/3+8eHl4WX/tH8iv/AfybFgisrhgIwAAAAASUVORK5CYII="
+}
+
+### 12. Sign Documents (Triggers RabbitMQ Event)
+POST {{baseUrl}}/api/sign-documents
+Content-Type: {{contentType}}
+
+{
+  "signningRoomId": 5,
+  "documentIds": [8,9]
+}

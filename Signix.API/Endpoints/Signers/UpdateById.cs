@@ -20,7 +20,7 @@ public class UpdateById : EndpointBaseAsync
         _signerService = signerService;
     }
 
-    [HttpPut("/api/signers/{signerId}/signature")]
+    [HttpPut("/api/signers/{SignerId:int}/signature")]
     [SwaggerOperation(
         Summary = "Update Signer Signature",
         Description = "Updates the signature data for a specific signer with base64 encoded signature",
@@ -32,11 +32,11 @@ public class UpdateById : EndpointBaseAsync
         CancellationToken cancellationToken = default)
     {
         // Validation
-        if (string.IsNullOrWhiteSpace(request.Base64Signature))
+        if (string.IsNullOrWhiteSpace(request.Body.Base64Signature))
         {
             var validationError = new ValidationError
             {
-                Identifier = nameof(request.Base64Signature),
+                Identifier = nameof(request.Body.Base64Signature),
                 ErrorMessage = "Base64 signature data is required"
             };
             return Result<Signer>.Invalid(validationError).ToActionResult();

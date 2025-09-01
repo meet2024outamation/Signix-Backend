@@ -18,6 +18,8 @@ public class SigningRoom
 
     [Column("description")]
     public string? Description { get; set; }
+    [Column("client_id")]
+    public int? ClientId { get; set; }
 
     [Required]
     [Column("original_path")]
@@ -49,11 +51,16 @@ public class SigningRoom
     //public int StatusId { get; set; }
 
     [Column("meta_data")]
-    public string? MetaData { get; set; }
+    public Dictionary<string, object>? MetaData { get; set; }
+    [Column("sign_tags")]
+    public Dictionary<string, object>? SignTags { get; set; }
 
     // Navigation properties
     [ForeignKey("NotaryId")]
     public virtual User Notary { get; set; } = null!;
+    [ForeignKey("ClientId")]
+    [JsonIgnore]
+    public virtual Client? Client { get; set; } = null!;
 
     [JsonIgnore]
     public virtual ICollection<Signer> Signers { get; set; } = new List<Signer>();

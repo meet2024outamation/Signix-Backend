@@ -24,8 +24,8 @@ public class Update : EndpointBaseAsync
     [SwaggerOperation(
       Summary = "Update Signing Room",
       Description = "",
-      OperationId = "Update.SigningRoom",
-      Tags = new[] { "Signing Room" }
+      //OperationId = "Update.SigningRoom",
+      Tags = ["Signing Room"]
      )]
     public override async Task<ActionResult> HandleAsync(
         UpdateSigningRoomEndpointRequest request,
@@ -81,5 +81,5 @@ public class UpdateSigningRoomBody
     public DateTime? CompletedAt { get; set; }
     public int ModifiedBy { get; set; }
     public int StatusId { get; set; }
-    public System.Text.Json.JsonElement MetaData { get; set; }
+    public Dictionary<string, object>? MetaData { get; set; }
 }

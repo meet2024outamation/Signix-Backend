@@ -27,7 +27,7 @@ namespace Signix.Entities.Entities
         public string Email { get; set; } = string.Empty;
 
         [Column("meta_data")]
-        public string? MetaData { get; set; }
+        public Dictionary<string, object>? MetaData { get; set; }
 
         // Navigation properties
         [JsonIgnore]

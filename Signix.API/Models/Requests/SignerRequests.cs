@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using System.Text.Json.Serialization;
+using System.ComponentModel.DataAnnotations;
 
 namespace Signix.API.Models.Requests;
 
@@ -23,12 +23,10 @@ public class UpdateSignerByIdEndpointRequest
     public int SignerId { get; set; }
 
     [FromBody]
-    [JsonPropertyName("base64Signature")]
+    public UpdateSignerSignatureBody Body { get; set; } = new();
+}
+public class UpdateSignerSignatureBody
+{
+    [Required]
     public string Base64Signature { get; set; } = string.Empty;
 }
-//public class UpdateSignerSignatureBody
-//{
-//    [Required]
-//    [JsonPropertyName("base64Signature")]
-//    public string Base64Signature { get; set; } = string.Empty;
-//}

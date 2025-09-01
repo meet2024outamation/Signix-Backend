@@ -21,8 +21,8 @@ public class GetById : EndpointBaseAsync
     [SwaggerOperation(
       Summary = "GetById Signing Room",
       Description = "",
-      OperationId = "GetById.SigningRoom",
-      Tags = new[] { "Signing Room" }
+      //OperationId = "GetById.SigningRoom",
+      Tags = ["Signing Room"]
       )]
     public override async Task<ActionResult> HandleAsync(
         [FromRoute] int id,
