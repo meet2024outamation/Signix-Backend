@@ -12,6 +12,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 #region Authorize Configuration
 
+builder.Services.AddDistributedMemoryCache();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
 
