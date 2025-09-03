@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Signix.API.Infrastructure;
 using Signix.API.Infrastructure.Messaging;
 using Signix.Entities.Context;
@@ -6,7 +7,16 @@ using System.Text.Json.Serialization;
 using static Signix.API.Models.Meta;
 
 var builder = WebApplication.CreateBuilder(args);
-
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173") // your frontend URL
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
 // Add services to the container.
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -56,7 +66,7 @@ catch (Exception ex)
 }
 
 // Register services
-builder.Services.AddSingleton<IRabbitMQService, RabbitMQService>();
+//builder.Services.AddSingleton<IRabbitMQService, RabbitMQService>();
 builder.Services.AddScoped<ISigningRoomService, SigningRoomService>();
 builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<ISignerService, SignerService>();
@@ -143,8 +153,15 @@ if (app.Environment.IsDevelopment())
         }
     }
 }
-
+app.UseCors("AllowFrontend");
 app.UseHttpsRedirection();
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(
+        Path.Combine(Directory.GetParent(Directory.GetCurrentDirectory())!.FullName, "TagedPdf")),
+    RequestPath = "/TagedPdf"
+});
 
 app.UseAuthorization();
 

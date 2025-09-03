@@ -2,6 +2,7 @@ using Ardalis.Result;
 using Microsoft.EntityFrameworkCore;
 using Signix.API.Models;
 using Signix.API.Models.Requests;
+using Signix.API.Models.Responses;
 using Signix.Entities.Context;
 using Signix.Entities.Entities;
 
@@ -18,34 +19,71 @@ public class SigningRoomService : ISigningRoomService
         _logger = logger;
     }
 
-    public async Task<Result<SigningRoom>> GetByIdAsync(int id)
+    public async Task<Result<SigningRoomGetByIdResponse>> GetByIdAsync(int id)
     {
         try
         {
             var signingRoom = await _context.SigningRooms
                 .Include(sr => sr.Notary)
+                .Include(sr => sr.Client)
+                .Include(sr => sr.Documents)
+                .Include(sr => sr.Signers)
+                    .ThenInclude(s => s.Designation)
                 .FirstOrDefaultAsync(sr => sr.Id == id);
 
             if (signingRoom == null)
             {
-                return Result<SigningRoom>.NotFound($"No signing room found with ID {id}");
+                return Result<SigningRoomGetByIdResponse>.NotFound($"No signing room found with ID {id}");
             }
-
-            return Result<SigningRoom>.Success(signingRoom);
+            var response = new SigningRoomGetByIdResponse
+            {
+                Id = signingRoom.Id,
+                Name = signingRoom.Name,
+                Description = signingRoom.Description,
+                OriginalPath = signingRoom.OriginalPath,
+                SignedPath = signingRoom.SignedPath,
+                NotaryId = signingRoom.NotaryId,
+                StartedAt = signingRoom.StartedAt,
+                CompletedAt = signingRoom.CompletedAt,
+                CreatedAt = signingRoom.CreatedAt,
+                ClientName = signingRoom.Client?.Name ?? "",
+                ModifiedBy = signingRoom.ModifiedBy,
+                Signers = signingRoom.Signers?.Select(s => new ListSignignRoomsSignerResponse
+                {
+                    Id = s.Id,
+                    Name = s.Name,
+                    Role = s.Designation?.Name ?? string.Empty,
+                    Email = s.Email
+                }).ToList() ?? new List<ListSignignRoomsSignerResponse>(),
+                Documents = signingRoom.Documents?.Select(d => new GetByIdSignignRoomDocumentResponse
+                {
+                    Id = d.Id,
+                    Name = d.Name,
+                    Description = d.Description,
+                    FileSize = d.FileSize,
+                    FileType = d.FileType
+                }).ToList() ?? new List<GetByIdSignignRoomDocumentResponse>()
+            };
+            return Result<SigningRoomGetByIdResponse>.Success(response);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving signing room with ID {Id}", id);
-            return Result<SigningRoom>.Error("An error occurred while retrieving the signing room");
+            return Result<SigningRoomGetByIdResponse>.Error("An error occurred while retrieving the signing room");
         }
     }
 
-    public async Task<PagedResult<List<SigningRoom>>> GetAllAsync(SigningRoomQuery query)
+    public async Task<PagedResult<List<SigningRoomListResponse>>> GetAllAsync(SigningRoomQuery query)
     {
         try
         {
             var queryable = _context.SigningRooms
                 .Include(sr => sr.Notary)
+                .Include(sr => sr.Client)
+                .Include(sr => sr.Documents)
+                    .ThenInclude(d => d.DocumentStatus)
+                .Include(sr => sr.Signers)
+                    .ThenInclude(s => s.Designation)
                 .AsQueryable();
 
             // Apply filters
@@ -75,15 +113,28 @@ public class SigningRoomService : ISigningRoomService
                 pageSize: query.PageSize,
                 totalRecords: totalCount,
                 totalPages: totalPages);
-
-            // Create a successful result and then convert to PagedResult
-            var successResult = Result<List<SigningRoom>>.Success(signingRooms);
-            return new PagedResult<List<SigningRoom>>(pagedInfo, successResult);
+            var responseList = signingRooms.Select(sr => new SigningRoomListResponse
+            {
+                Id = sr.Id,
+                Name = sr.Name,
+                Description = sr.Description,
+                OriginalPath = sr.OriginalPath,
+                SignedPath = sr.SignedPath,
+                NotaryName = sr.Notary.FirstName + ' ' + sr.Notary.LastName,
+                ClientName = sr.Client.Name,
+                CreatedAt = sr.CreatedAt,
+                StartedAt = sr.StartedAt,
+                CompletedAt = sr.CompletedAt,
+                SignersCount = sr.Signers?.Count ?? 0,
+                DocumentsCount = sr.Documents?.Count ?? 0,
+            }).ToList();            // Create a successful result and then convert to PagedResult
+            var successResult = Result<List<SigningRoomListResponse>>.Success(responseList);
+            return new PagedResult<List<SigningRoomListResponse>>(pagedInfo, successResult);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving signing rooms");
-            return (PagedResult<List<SigningRoom>>)PagedResult<List<SigningRoom>>.Error("An error occurred while retrieving signing rooms");
+            return (PagedResult<List<SigningRoomListResponse>>)PagedResult<List<SigningRoomListResponse>>.Error("An error occurred while retrieving signing rooms");
         }
     }
 

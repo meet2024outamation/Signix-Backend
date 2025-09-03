@@ -23,7 +23,7 @@ Content-Type: {{contentType}}
 
 {
   "client": "OMods",
-  "name": "Loan Agreement Signing",
+  "name": "Loan Agreement Signing 1",
   "description": "Complete loan documentation signing session",
   "originalPath": "/TagedPdf/",
   "notaryEmail": "john.doe@notary.com",

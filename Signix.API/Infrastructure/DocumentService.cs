@@ -4,8 +4,8 @@ using Signix.API.Infrastructure.Messaging;
 using Signix.API.Models;
 using Signix.API.Models.Messages;
 using Signix.API.Models.Requests;
+using Signix.API.Models.Responses;
 using Signix.Entities.Context;
-using Signix.Entities.Entities;
 
 namespace Signix.API.Infrastructure;
 
@@ -25,7 +25,7 @@ public class DocumentService : IDocumentService
         _rabbitMqService = rabbitMqService;
     }
 
-    public async Task<PagedResult<List<Document>>> GetAllAsync(DocumentQuery query)
+    public async Task<PagedResult<List<ListDocumentResponse>>> GetAllAsync(DocumentQuery query)
     {
         try
         {
@@ -54,6 +54,19 @@ public class DocumentService : IDocumentService
                 .OrderBy(d => d.Name)
                 .Skip((query.Page - 1) * query.PageSize)
                 .Take(query.PageSize)
+                .Select(d => new ListDocumentResponse
+                {
+                    Id = d.Id,
+                    Name = d.Name,
+                    Description = d.Description,
+                    FileSize = d.FileSize,
+                    FileType = d.FileType,
+                    Status = d.DocumentStatus != null ? d.DocumentStatus.Name : string.Empty,
+                    SigningRoom = d.SigningRoom != null ? d.SigningRoom.Name : string.Empty,
+                    OriginalPath = d.SigningRoom != null ? Path.Combine(d.SigningRoom.OriginalPath, d.Name) : string.Empty,
+                    SignedPath = d.SigningRoom != null ? Path.Combine(d.SigningRoom.SignedPath, d.Name)
+                                    : string.Empty
+                })
                 .ToListAsync();
 
             var pagedInfo = new PagedInfo(
@@ -62,16 +75,17 @@ public class DocumentService : IDocumentService
                 totalRecords: totalCount,
                 totalPages: totalPages);
 
-            var successResult = Result<List<Document>>.Success(documents);
-            return new PagedResult<List<Document>>(pagedInfo, successResult);
+            var successResult = Result<List<ListDocumentResponse>>.Success(documents);
+            return new PagedResult<List<ListDocumentResponse>>(pagedInfo, successResult);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving documents");
-            var errorResult = Result<List<Document>>.Error("An error occurred while retrieving documents");
-            return new PagedResult<List<Document>>(new PagedInfo(1, 10, 0, 0), errorResult);
+            var errorResult = Result<List<ListDocumentResponse>>.Error("An error occurred while retrieving documents");
+            return new PagedResult<List<ListDocumentResponse>>(new PagedInfo(1, 10, 0, 0), errorResult);
         }
     }
+
 
     public async Task<Result<int>> SignDocumentsAsync(SignDocumentRequest request)
     {
