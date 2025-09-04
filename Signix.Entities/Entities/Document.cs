@@ -54,5 +54,7 @@ namespace Signix.Entities.Entities
         //[ForeignKey("ClientId")]
         //[JsonIgnore]
         //public virtual Client Client { get; set; } = null!;
+        [JsonIgnore]
+        public virtual ICollection<SignLog> SignLogs { get; set; } = new List<SignLog>();
     }
 }

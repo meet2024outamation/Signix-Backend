@@ -156,11 +156,57 @@ if (app.Environment.IsDevelopment())
 app.UseCors("AllowFrontend");
 app.UseHttpsRedirection();
 
+// PSEUDOCODE:
+// 1. Determine base directory (parent of current working directory).
+// 2. Compose absolute paths for both folders: TagedPdf and SignedPdf.
+// 3. Ensure both directories exist (Directory.CreateDirectory is idempotent).
+// 4. Register two Static File middlewares:
+//    - /TagedPdf -> physical TagedPdf folder
+//    - /SignedPdf -> physical SignedPdf folder
+// 5. Replace previous single app.UseStaticFiles call.
+
+// STATIC FILE MIDDLEWARE (replaces previous single TagedPdf block)
+var baseFilesDir = Directory.GetParent(Directory.GetCurrentDirectory())!.FullName;
+var taggedPdfPath = Path.Combine(baseFilesDir, "TagedPdf");
+var taggedPdfPath1 = Path.Combine(baseFilesDir, "TagedPdf1");
+var taggedPdfPath2 = Path.Combine(baseFilesDir, "TagedPdf2");
+var signedPdfPath = Path.Combine(baseFilesDir, "SignedPdf");
+var signedPdfPath1 = Path.Combine(baseFilesDir, "SignedPdf1");
+var signedPdfPath2 = Path.Combine(baseFilesDir, "SignedPdf2");
+
+// Ensure folders exist
+Directory.CreateDirectory(taggedPdfPath);
+Directory.CreateDirectory(signedPdfPath);
+
 app.UseStaticFiles(new StaticFileOptions
 {
-    FileProvider = new PhysicalFileProvider(
-        Path.Combine(Directory.GetParent(Directory.GetCurrentDirectory())!.FullName, "TagedPdf")),
+    FileProvider = new PhysicalFileProvider(taggedPdfPath),
     RequestPath = "/TagedPdf"
+});
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(taggedPdfPath1),
+    RequestPath = "/TagedPdf1"
+});
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(taggedPdfPath2),
+    RequestPath = "/TagedPdf2"
+});
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(signedPdfPath),
+    RequestPath = "/SignedPdf"
+});
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(signedPdfPath1),
+    RequestPath = "/SignedPdf1"
+});
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(signedPdfPath2),
+    RequestPath = "/SignedPdf2"
 });
 
 app.UseAuthorization();

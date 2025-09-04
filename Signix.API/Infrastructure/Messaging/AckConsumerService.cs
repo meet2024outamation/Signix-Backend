@@ -2,6 +2,7 @@
 using Signix.API.Models;
 using Signix.API.Models.Messages;
 using Signix.Entities.Context;
+using Signix.Entities.Entities;
 
 namespace Signix.API.Infrastructure.Messaging
 {
@@ -54,31 +55,42 @@ namespace Signix.API.Infrastructure.Messaging
                     return;
                 }
 
-                string targetStatusName = ackMessage.Status.ToLower() switch
-                {
-                    "completed" => Meta.DocumentStatus.Signed,
-                    "failed" => Meta.DocumentStatus.Failed,
-                    _ => Meta.DocumentStatus.Pending
-                };
 
-                var targetStatus = await dbContext.DocumentStatuses
-                    .FirstOrDefaultAsync(ds => ds.Name == targetStatusName);
-
-                if (targetStatus == null)
-                {
-                    _logger.LogError("Document status '{StatusName}' not found in database", targetStatusName);
-                    return;
-                }
                 var updatedDocumentsCount = 0;
                 foreach (var processedDoc in ackMessage.ProcessedDocuments)
                 {
+                    string targetStatusName = processedDoc.Status.ToLower() switch
+                    {
+                        "completed" => Meta.DocumentStatus.Signed,
+                        "failed" => Meta.DocumentStatus.Failed,
+                        _ => Meta.DocumentStatus.Pending
+                    };
+                    var targetStatus = await dbContext.DocumentStatuses
+                        .FirstOrDefaultAsync(ds => ds.Name == targetStatusName);
+
+                    if (targetStatus == null)
+                    {
+                        _logger.LogError("Document status '{StatusName}' not found in database", targetStatusName);
+                        return;
+                    }
+
                     var document = signingRoom.Documents
                         .FirstOrDefault(d => d.Name == processedDoc.Name);
-
                     if (document != null)
                     {
                         document.DocumentStatusId = targetStatus.Id;
                         updatedDocumentsCount++;
+                        var signLogs = processedDoc.ErrorMessages
+                                        .Select(em => new SignLog
+                                        {
+                                            DocumentId = document.Id,
+                                            Message = em
+                                        })
+                                        .ToList();
+                        if (signLogs.Any())
+                        {
+                            await dbContext.SignLogs.AddRangeAsync(signLogs);
+                        }
                     }
                     else
                     {
@@ -107,9 +119,9 @@ namespace Signix.API.Infrastructure.Messaging
 
                 await dbContext.SaveChangesAsync();
 
-                _logger.LogInformation("Successfully processed acknowledgment for SigningRoomId: {SigningRoomId}. " +
-                    "Updated {DocumentCount} documents to '{Status}' status",
-                    ackMessage.SigningRoomId, updatedDocumentsCount, targetStatusName);
+                //_logger.LogInformation("Successfully processed acknowledgment for SigningRoomId: {SigningRoomId}. " +
+                //    "Updated {DocumentCount} documents to '{Status}' status",
+                //    ackMessage.SigningRoomId, updatedDocumentsCount, targetStatusName);
             }
             catch (Exception ex)
             {

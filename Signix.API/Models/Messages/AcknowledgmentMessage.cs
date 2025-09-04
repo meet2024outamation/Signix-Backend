@@ -15,6 +15,8 @@ public class ProcessedDocument
     public DateTime Timestamp { get; set; }
     [JsonPropertyName("status")]
     public string Status { get; set; }
+    [JsonPropertyName("error_messages")]
+    public List<string> ErrorMessages { get; set; } = new();
 }
 
 public class AcknowledgmentMessage

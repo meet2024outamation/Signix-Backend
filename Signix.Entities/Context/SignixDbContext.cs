@@ -15,6 +15,7 @@ public class SignixDbContext : DbContext
     public DbSet<Signer> Signers { get; set; }
     public DbSet<SigningRoom> SigningRooms { get; set; }
     public DbSet<User> Users { get; set; }
+    public DbSet<SignLog> SignLogs { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -67,8 +68,21 @@ public class SignixDbContext : DbContext
                   .HasForeignKey(s => s.SigningRoomId)
                   .OnDelete(DeleteBehavior.Cascade);
 
+            entity.HasOne(s => s.Designation)
+                  .WithMany(d => d.Signers)
+                  .HasForeignKey(s => s.DesignationId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
             // Unique constraint
             entity.HasIndex(s => new { s.SigningRoomId, s.Email }).IsUnique();
+        });
+
+        modelBuilder.Entity<SignLog>(entity =>
+        {
+            entity.HasOne(sl => sl.Document)
+                  .WithMany(d => d.SignLogs)
+                  .HasForeignKey(sl => sl.DocumentId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         // ✅ PostgreSQL-specific config
@@ -105,6 +119,7 @@ public class SignixDbContext : DbContext
         modelBuilder.Entity<Document>().HasIndex(d => d.DocumentStatusId);
         modelBuilder.Entity<SigningRoom>().HasIndex(sr => sr.NotaryId);
         modelBuilder.Entity<Signer>().HasIndex(s => s.SigningRoomId);
+        modelBuilder.Entity<SignLog>().HasIndex(sl => sl.DocumentId);
 
         // Seed initial data
         //SeedInitialData(modelBuilder);

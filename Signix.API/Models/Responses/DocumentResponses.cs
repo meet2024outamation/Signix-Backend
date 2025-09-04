@@ -11,4 +11,5 @@ public class ListDocumentResponse
     public string SigningRoom { get; set; } = string.Empty;
     public string OriginalPath { get; set; } = string.Empty;
     public string? SignedPath { get; set; }
+    public List<string> SignLogs { get; set; } = [];
 }

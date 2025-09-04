@@ -32,6 +32,7 @@ public class DocumentService : IDocumentService
             var queryable = _context.Documents
                 .Include(d => d.DocumentStatus)
                 .Include(d => d.SigningRoom)
+                .Include(d => d.SignLogs)
                 .AsQueryable();
 
             // Apply filters
@@ -65,7 +66,8 @@ public class DocumentService : IDocumentService
                     SigningRoom = d.SigningRoom != null ? d.SigningRoom.Name : string.Empty,
                     OriginalPath = d.SigningRoom != null ? Path.Combine(d.SigningRoom.OriginalPath, d.Name) : string.Empty,
                     SignedPath = d.SigningRoom != null ? Path.Combine(d.SigningRoom.SignedPath, d.Name)
-                                    : string.Empty
+                                    : string.Empty,
+                    SignLogs = d.SignLogs.Select(sl => sl.Message).ToList()
                 })
                 .ToListAsync();
 
