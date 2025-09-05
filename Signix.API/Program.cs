@@ -1,10 +1,22 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Signix.API.Infrastructure;
+using Signix.API.Infrastructure.Messaging;
 using Signix.Entities.Context;
 using System.Text.Json.Serialization;
+using static Signix.API.Models.Meta;
 
 var builder = WebApplication.CreateBuilder(args);
-
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173") // your frontend URL
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
 // Add services to the container.
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -18,7 +30,7 @@ builder.Services.AddControllers()
 builder.Services.AddDbContext<SignixDbContext>(options =>
 {
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-    
+
     if (string.IsNullOrEmpty(connectionString))
     {
         throw new InvalidOperationException(
@@ -27,7 +39,7 @@ builder.Services.AddDbContext<SignixDbContext>(options =>
     }
 
     options.UseNpgsql(connectionString);
-    
+
     // Enable detailed errors in development
     if (builder.Environment.IsDevelopment())
     {
@@ -37,8 +49,29 @@ builder.Services.AddDbContext<SignixDbContext>(options =>
     }
 });
 
+// Register RabbitMQ service
+try
+{
+    builder.Services.Configure<RabbitMQSettings>(builder.Configuration.GetSection("RabbitMQSettings"));
+    builder.Services.AddSingleton<IRabbitMQService, RabbitMQService>();
+    Console.WriteLine("🐰 RabbitMQ service registered successfully");
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"⚠️ Warning: Failed to register RabbitMQ service: {ex.Message}");
+    Console.WriteLine("📝 Note: RabbitMQ features will be disabled. Please ensure RabbitMQ server is running.");
+
+    // Register a null implementation or mock service if needed for development
+    // builder.Services.AddSingleton<IRabbitMqService, NullRabbitMqService>();
+}
+
 // Register services
+//builder.Services.AddSingleton<IRabbitMQService, RabbitMQService>();
 builder.Services.AddScoped<ISigningRoomService, SigningRoomService>();
+builder.Services.AddScoped<IDocumentService, DocumentService>();
+builder.Services.AddScoped<ISignerService, SignerService>();
+
+builder.Services.AddHostedService<AckConsumerService>();
 
 // Add OpenAPI/Swagger services
 builder.Services.AddEndpointsApiExplorer();
@@ -48,14 +81,9 @@ builder.Services.AddSwaggerGen(c =>
     {
         Title = "Signix API",
         Version = "v1",
-        Description = "API for managing digital signing rooms and documents",
-        Contact = new Microsoft.OpenApi.Models.OpenApiContact
-        {
-            Name = "Signix Team",
-            Email = "support@signix.com"
-        }
+        Description = "API for managing digital signing rooms, documents, and signers with RabbitMQ integration",
     });
-    
+
     // Include XML comments if you have them
     // var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
     // var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
@@ -76,154 +104,115 @@ if (app.Environment.IsDevelopment())
         c.DocumentTitle = "Signix API Documentation";
         c.DisplayRequestDuration();
     });
-    
-    // Test database connection and apply migrations in development
+
+    // Database initialization in development
     using (var scope = app.Services.CreateScope())
     {
         var context = scope.ServiceProvider.GetRequiredService<SignixDbContext>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-        
+
         try
         {
-            logger.LogInformation("?? Testing PostgreSQL connection...");
-            
-            // Test the connection
-            await context.Database.CanConnectAsync();
-            logger.LogInformation("? PostgreSQL connection successful!");
-            
-            // Apply any pending migrations
+            logger.LogInformation("🔌 Initializing PostgreSQL database...");
+
+            // This will create the database if it doesn't exist
+            // Note: The postgres user must have CREATEDB privileges
+            await context.Database.EnsureCreatedAsync();
+            logger.LogInformation("✅ Database created/verified successfully!");
+
+            // Apply any pending migrations (in case you add them later)
             var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
             if (pendingMigrations.Any())
             {
-                logger.LogInformation("?? Applying pending migrations...");
+                logger.LogInformation("🔄 Applying pending migrations...");
                 await context.Database.MigrateAsync();
-                logger.LogInformation("? Migrations applied successfully!");
+                logger.LogInformation("✅ Migrations applied successfully!");
             }
             else
             {
-                logger.LogInformation("? Database is up to date!");
+                logger.LogInformation("✅ Database is up to date!");
             }
-            
-            // Seed some initial data if database is empty
-            await SeedDatabaseAsync(context, logger);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "? Database connection or migration failed: {Message}", ex.Message);
-            logger.LogError("?? Please check your PostgreSQL connection and ensure:");
+            logger.LogError(ex, "❌ Database initialization failed: {Message}", ex.Message);
+            logger.LogError("🔧 Please check your PostgreSQL connection and ensure:");
             logger.LogError("   1. PostgreSQL is running");
             logger.LogError("   2. Connection string is correct in appsettings.json");
-            logger.LogError("   3. Database 'SignixDb' exists");
+            logger.LogError("   3. PostgreSQL user has CREATEDB privileges");
             logger.LogError("   4. User has proper permissions");
+
+            // Try manual database creation guidance
+            logger.LogWarning("💡 Alternative: Create database manually in pgAdmin:");
+            logger.LogWarning("   1. Open pgAdmin");
+            logger.LogWarning("   2. Right-click server → Create → Database");
+            logger.LogWarning("   3. Name: 'SignixDb'");
+            logger.LogWarning("   4. Restart the application");
+
             throw;
         }
     }
 }
-
+app.UseCors("AllowFrontend");
 app.UseHttpsRedirection();
+
+// PSEUDOCODE:
+// 1. Determine base directory (parent of current working directory).
+// 2. Compose absolute paths for both folders: TagedPdf and SignedPdf.
+// 3. Ensure both directories exist (Directory.CreateDirectory is idempotent).
+// 4. Register two Static File middlewares:
+//    - /TagedPdf -> physical TagedPdf folder
+//    - /SignedPdf -> physical SignedPdf folder
+// 5. Replace previous single app.UseStaticFiles call.
+
+// STATIC FILE MIDDLEWARE (replaces previous single TagedPdf block)
+var baseFilesDir = Directory.GetParent(Directory.GetCurrentDirectory())!.FullName;
+var taggedPdfPath = Path.Combine(baseFilesDir, "TagedPdf");
+var taggedPdfPath1 = Path.Combine(baseFilesDir, "TagedPdf1");
+var taggedPdfPath2 = Path.Combine(baseFilesDir, "TagedPdf2");
+var signedPdfPath = Path.Combine(baseFilesDir, "SignedPdf");
+var signedPdfPath1 = Path.Combine(baseFilesDir, "SignedPdf1");
+var signedPdfPath2 = Path.Combine(baseFilesDir, "SignedPdf2");
+
+// Ensure folders exist
+Directory.CreateDirectory(taggedPdfPath);
+Directory.CreateDirectory(signedPdfPath);
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(taggedPdfPath),
+    RequestPath = "/TagedPdf"
+});
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(taggedPdfPath1),
+    RequestPath = "/TagedPdf1"
+});
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(taggedPdfPath2),
+    RequestPath = "/TagedPdf2"
+});
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(signedPdfPath),
+    RequestPath = "/SignedPdf"
+});
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(signedPdfPath1),
+    RequestPath = "/SignedPdf1"
+});
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(signedPdfPath2),
+    RequestPath = "/SignedPdf2"
+});
 
 app.UseAuthorization();
 
 app.MapControllers();
 
-Console.WriteLine("?? Signix API is ready!");
-Console.WriteLine("?? Using PostgreSQL Database");
-Console.WriteLine("?? Swagger UI: Available at the root URL when running in Development");
-Console.WriteLine("?? API Base URL: /api/signing-rooms");
-
 app.Run();
 
 // Seed method for initial data
-static async Task SeedDatabaseAsync(SignixDbContext context, ILogger logger)
-{
-    try
-    {
-        // Check if we already have data
-        if (await context.Users.AnyAsync() || await context.SigningRooms.AnyAsync())
-        {
-            logger.LogInformation("?? Database already contains data, skipping seed.");
-            return;
-        }
-
-        logger.LogInformation("?? Seeding initial data...");
-
-        // Add sample users (notaries)
-        var users = new[]
-        {
-            new Signix.Entities.Entities.User
-            {
-                FirstName = "John",
-                LastName = "Doe",
-                Email = "john.doe@notary.com",
-                MetaData = System.Text.Json.JsonDocument.Parse("{}").RootElement
-            },
-            new Signix.Entities.Entities.User
-            {
-                FirstName = "Jane",
-                LastName = "Smith",
-                Email = "jane.smith@notary.com",
-                MetaData = System.Text.Json.JsonDocument.Parse("{}").RootElement
-            }
-        };
-
-        context.Users.AddRange(users);
-        await context.SaveChangesAsync();
-
-        // Add sample clients
-        var clients = new[]
-        {
-            new Signix.Entities.Entities.Client
-            {
-                Name = "Acme Corporation",
-                Description = "Technology company",
-                AzureClientId = "sample-azure-client-id-1",
-                ClientSecret = System.Text.Json.JsonDocument.Parse("{}").RootElement,
-                CreatedBy = 1,
-                ModifiedBy = 1,
-                IsActive = true
-            }
-        };
-
-        context.Clients.AddRange(clients);
-        await context.SaveChangesAsync();
-
-        // Add sample signing rooms
-        var signingRooms = new[]
-        {
-            new Signix.Entities.Entities.SigningRoom
-            {
-                Name = "NDA Signing Session",
-                Description = "Non-disclosure agreement signing",
-                NotaryId = users[0].Id,
-                CreatedBy = 1,
-                ModifiedBy = 1,
-                StatusId = 1,
-                CreatedAt = DateTime.UtcNow,
-                MetaData = System.Text.Json.JsonDocument.Parse("{}").RootElement
-            },
-            new Signix.Entities.Entities.SigningRoom
-            {
-                Name = "Contract Signing",
-                Description = "Service agreement contract signing",
-                NotaryId = users[1].Id,
-                CreatedBy = 1,
-                ModifiedBy = 1,
-                StatusId = 1,
-                CreatedAt = DateTime.UtcNow,
-                MetaData = System.Text.Json.JsonDocument.Parse("{}").RootElement
-            }
-        };
-
-        context.SigningRooms.AddRange(signingRooms);
-        await context.SaveChangesAsync();
-
-        logger.LogInformation("? Database seeded successfully!");
-        logger.LogInformation($"?? Created {users.Length} users");
-        logger.LogInformation($"?? Created {clients.Length} clients");
-        logger.LogInformation($"?? Created {signingRooms.Length} signing rooms");
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "? Error seeding database: {Message}", ex.Message);
-    }
-}

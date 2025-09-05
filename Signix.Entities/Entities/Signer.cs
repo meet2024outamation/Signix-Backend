@@ -24,22 +24,25 @@ namespace Signix.Entities.Entities
         [Column("email")]
         public string Email { get; set; } = string.Empty;
 
+        [Required]
         [MaxLength(100)]
-        [Column("designation")]
-        public string? Designation { get; set; }
+        [Column("designation_id")]
+        public int DesignationId { get; set; }
 
-        [Column("signature_path")]
-        public string? SignaturePath { get; set; }
+        /// <summary>
+        /// Base64 encoded signature data
+        /// </summary>
+        [Column("signature_data")]
+        public string? SignatureData { get; set; }
+        [Column("sined_at")]
+        public DateTime? SignedAt { get; set; }
 
-        [Column("signed_at")]
-        public DateTime? SignedAt { get; set; } // Added for tracking when signed
-
-        [Column("signing_order")]
-        public int? SigningOrder { get; set; } // Added for signing sequence
-
-        // Navigation properties
         [ForeignKey("SigningRoomId")]
         [JsonIgnore]
         public virtual SigningRoom SigningRoom { get; set; } = null!;
+
+        [ForeignKey("DesignationId")]
+        [JsonIgnore]
+        public virtual Designation Designation { get; set; } = null!;
     }
 }

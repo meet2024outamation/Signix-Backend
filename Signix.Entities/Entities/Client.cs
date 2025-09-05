@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Text.Json;
 
 namespace Signix.Entities.Entities;
 
@@ -23,8 +22,8 @@ public class Client
     [Column("azure_client_id")]
     public string AzureClientId { get; set; } = string.Empty;
 
-    [Column("client_secret", TypeName = "jsonb")]
-    public JsonElement ClientSecret { get; set; }
+    [Column("client_secret")]
+    public Dictionary<string, object>? ClientSecret { get; set; }
 
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -42,5 +41,5 @@ public class Client
     public bool IsActive { get; set; } = true;
 
     // Navigation properties
-    public virtual ICollection<Document> Documents { get; set; } = new List<Document>();
+    public virtual ICollection<SigningRoom> SigningRooms { get; set; } = new List<SigningRoom>();
 }

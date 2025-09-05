@@ -5,6 +5,7 @@ using Signix.API.Extensions;
 using Signix.API.Infrastructure;
 using Signix.API.Models.Requests;
 using Signix.Entities.Entities;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace Signix.API.Endpoints.SigningRooms;
 
@@ -20,6 +21,12 @@ public class Update : EndpointBaseAsync
     }
 
     [HttpPut("/api/signing-rooms/{id}")]
+    [SwaggerOperation(
+      Summary = "Update Signing Room",
+      Description = "",
+      //OperationId = "Update.SigningRoom",
+      Tags = ["Signing Room"]
+     )]
     public override async Task<ActionResult> HandleAsync(
         UpdateSigningRoomEndpointRequest request,
         CancellationToken cancellationToken = default)
@@ -34,7 +41,7 @@ public class Update : EndpointBaseAsync
             return Result<SigningRoom>.Invalid(validationError).ToActionResult();
         }
 
-        var updateRequest = new UpdateSigningRoomRequest
+        var updateRequest = new SigningRoomUpdateRequest
         {
             Id = request.Id,
             Name = request.Body.Name,
@@ -74,5 +81,5 @@ public class UpdateSigningRoomBody
     public DateTime? CompletedAt { get; set; }
     public int ModifiedBy { get; set; }
     public int StatusId { get; set; }
-    public System.Text.Json.JsonElement MetaData { get; set; }
+    public Dictionary<string, object>? MetaData { get; set; }
 }

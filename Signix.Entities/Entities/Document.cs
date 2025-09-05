@@ -19,24 +19,23 @@ namespace Signix.Entities.Entities
         [Column("description")]
         public string? Description { get; set; }
 
-        [Column("client_id")]
-        public int ClientId { get; set; }
+        //[Column("client_id")]
+        //public int ClientId { get; set; }
 
         [Column("file_size")]
         public long FileSize { get; set; }
 
-        [Required]
         [MaxLength(50)]
         [Column("file_type")]
         public string FileType { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Document tags stored as JSONB for flexible key-value pairs
+        /// Example: {"borr_name": "John Doe", "loan_amount": 50000, "credit_score": 750}
+        /// </summary>
         [Required]
-        [MaxLength(500)]
-        [Column("file_path")]
-        public string FilePath { get; set; } = string.Empty;
-
         [Column("doc_tags")]
-        public string? DocTags { get; set; }
+        public Dictionary<string, object> DocTags { get; set; } = new();
 
         [Column("signing_room_id")]
         public int SigningRoomId { get; set; }
@@ -52,8 +51,10 @@ namespace Signix.Entities.Entities
         [JsonIgnore]
         public virtual SigningRoom SigningRoom { get; set; } = null!;
 
-        [ForeignKey("ClientId")]
+        //[ForeignKey("ClientId")]
+        //[JsonIgnore]
+        //public virtual Client Client { get; set; } = null!;
         [JsonIgnore]
-        public virtual Client Client { get; set; } = null!;
+        public virtual ICollection<SignLog> SignLogs { get; set; } = new List<SignLog>();
     }
 }
