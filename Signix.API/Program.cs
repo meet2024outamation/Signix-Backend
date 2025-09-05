@@ -1,5 +1,10 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Identity.Web;
+using SharedKernel.AuthorizeHandler;
+using SharedKernel.Models;
+using SharedKernel.Services;
 using Signix.API.Infrastructure;
 using Signix.API.Infrastructure.Messaging;
 using Signix.Entities.Context;
@@ -7,6 +12,19 @@ using System.Text.Json.Serialization;
 using static Signix.API.Models.Meta;
 
 var builder = WebApplication.CreateBuilder(args);
+
+#region Authorize Configuration
+
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
+
+builder.ConfigureAuthorization();
+builder.Services.AddScoped<IUser, AuthUser>();
+
+builder.Services.AddTransient<TokenHandler>();
+#endregion
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>

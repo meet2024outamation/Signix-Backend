@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 
@@ -28,6 +29,14 @@ namespace Signix.Entities.Entities
 
         [Column("meta_data")]
         public Dictionary<string, object>? MetaData { get; set; }
+
+        [StringLength(50)]
+        [Unicode(false)]
+        public string? Type { get; set; }
+
+        [Column("AzureADUserId")]
+        [StringLength(128)]
+        public string? AzureAduserId { get; set; }
 
         // Navigation properties
         [JsonIgnore]
